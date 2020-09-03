@@ -43,6 +43,8 @@ import com.raywenderlich.android.redditclone.networking.RedditPost
 )
 abstract class RedditDb : RoomDatabase() {
 
+  abstract fun postDao():RedditPostDao;
+
   companion object {
     fun create(context: Context): RedditDb {
       val databaseBuilder = Room.databaseBuilder(context, RedditDb::class.java, "redditclone.db")
