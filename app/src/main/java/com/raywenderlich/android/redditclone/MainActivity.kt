@@ -30,6 +30,7 @@
 
 package com.raywenderlich.android.redditclone
 
+import android.arch.lifecycle.MutableLiveData
 import android.arch.lifecycle.Observer
 import android.arch.paging.DataSource
 import android.arch.paging.LivePagedListBuilder
@@ -45,11 +46,18 @@ class MainActivity : AppCompatActivity() {
 
 //  private val redditDiffUtilCallback: RedditDiffUtilCallback = RedditDiffUtilCallback();
   private val adapter = RedditAdapter();
+  private var liveLoaderState: MutableLiveData<LoaderState> = MutableLiveData();
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
     initializeList()
+
+    liveLoaderState.observe(this, Observer {
+      if (it != null) {
+        adapter.setLoaderState(it)
+      }
+    });
   }
 
   private fun initializeList() {
@@ -78,7 +86,7 @@ class MainActivity : AppCompatActivity() {
     val livePageListBuilder = LivePagedListBuilder<Int, RedditPost>(
             database.postDao().posts(),
             config);
-    livePageListBuilder.setBoundaryCallback(RedditBoundaryCallback(database));
+    livePageListBuilder.setBoundaryCallback(RedditBoundaryCallback(database, liveLoaderState));
     return livePageListBuilder
   }
 

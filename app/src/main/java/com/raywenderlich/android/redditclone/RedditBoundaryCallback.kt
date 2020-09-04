@@ -31,6 +31,7 @@
 
 package com.raywenderlich.android.redditclone
 
+import android.arch.lifecycle.MutableLiveData
 import android.arch.paging.PagedList
 import android.util.Log
 import com.raywenderlich.android.redditclone.database.RedditDb
@@ -51,12 +52,14 @@ class RedditBoundaryCallback :
   private var api: RedditService;
   private val executor: ExecutorService;
   private val helper:PagingRequestHelper
+  private var liveLoaderState: MutableLiveData<LoaderState>;
 
-  constructor(rdb: RedditDb) {
+  constructor(rdb: RedditDb, liveLoaderState: MutableLiveData<LoaderState>) {
     this.db = rdb;
     this.api = RedditService.createService();
     this.executor = Executors.newSingleThreadExecutor();
     this.helper = PagingRequestHelper(executor);
+    this.liveLoaderState = liveLoaderState;
   }
 
 
@@ -64,6 +67,7 @@ class RedditBoundaryCallback :
   override fun onZeroItemsLoaded() {
     super.onZeroItemsLoaded();
     // 1
+    liveLoaderState.postValue(LoaderState.LOADING);
     helper.runIfNotRunning(PagingRequestHelper.RequestType.INITIAL) {
       helperCallback: PagingRequestHelper.Request.Callback? ->
         api.getPosts().enqueue(object : Callback<RedditApiResponse>{
@@ -72,15 +76,17 @@ class RedditBoundaryCallback :
             // 3
             Log.e("RedditBoundaryCallback", "Failed to load data!");
             helperCallback?.recordFailure(t);
+            liveLoaderState.postValue(LoaderState.ERROR);
           }
 
           override fun onResponse(call: Call<RedditApiResponse>, response: Response<RedditApiResponse>) {
               // 4
               val posts: List<RedditPost>? = response.body()?.data?.children?.map { it.data };
-            executor.execute{
-              db.postDao().insert(posts?: listOf()); // ?: listOf(); -> if null create emptyList
-              helperCallback?.recordSuccess();
-            }
+              executor.execute{
+                db.postDao().insert(posts?: listOf()); // ?: listOf(); -> if null create emptyList
+                helperCallback?.recordSuccess();
+              }
+              liveLoaderState.postValue(LoaderState.DONE);
           }
 
         })
@@ -89,6 +95,7 @@ class RedditBoundaryCallback :
 
   override fun onItemAtEndLoaded(itemAtEnd: RedditPost) {
     super.onItemAtEndLoaded(itemAtEnd)
+    liveLoaderState.postValue(LoaderState.LOADING);
     helper.runIfNotRunning(PagingRequestHelper.RequestType.AFTER) {
       helperCallback ->
         api.getPosts(after = itemAtEnd.key)
@@ -97,6 +104,7 @@ class RedditBoundaryCallback :
                 override fun onFailure(call: Call<RedditApiResponse>, t: Throwable) {
                   Log.e("RedditBoundaryCallback", "Failed to load data!")
                   helperCallback.recordFailure(t);
+                  liveLoaderState.postValue(LoaderState.ERROR);
                 }
 
                 override fun onResponse(call: Call<RedditApiResponse>, response: Response<RedditApiResponse>) {
@@ -106,6 +114,7 @@ class RedditBoundaryCallback :
                     db.postDao().insert(posts ?: listOf());
                     helperCallback.recordSuccess();
                   }
+                  liveLoaderState.postValue(LoaderState.DONE);
 
                 }
 
