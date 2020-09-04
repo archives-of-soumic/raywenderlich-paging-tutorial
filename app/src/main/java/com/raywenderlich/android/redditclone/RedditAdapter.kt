@@ -41,8 +41,10 @@ class RedditAdapter : PagedListAdapter<RedditPost, RecyclerView.ViewHolder> {
   /** Konsts */
   companion object{
     public var TAG:String = RedditAdapter::class.java.simpleName;
+    private val STORY_VIEW_TYPE = 0;
     private val DATA_VIEW_TYPE = 1;
     private val FOOTER_VIEW_TYPE = 2;
+    public val OFFSET = 1;
   }
 
   /** Variables */
@@ -56,7 +58,11 @@ class RedditAdapter : PagedListAdapter<RedditPost, RecyclerView.ViewHolder> {
 
   /** Override methods */
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-    if(viewType == DATA_VIEW_TYPE) {
+    if(viewType == STORY_VIEW_TYPE) {
+      val view = LayoutInflater.from(parent.context).inflate(R.layout.story_row, parent, false)
+      return StoriesViewHolder(view);
+    }
+    else if(viewType == DATA_VIEW_TYPE) {
       val view = LayoutInflater.from(parent.context).inflate(R.layout.adapter_row, parent, false)
       return RedditViewHolder(view)
     }else{
@@ -66,9 +72,11 @@ class RedditAdapter : PagedListAdapter<RedditPost, RecyclerView.ViewHolder> {
   }
 
   override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-    if(getItemViewType(position) == DATA_VIEW_TYPE) {
+    if(getItemViewType(position) == STORY_VIEW_TYPE) {
+      // story viewholder
+    } else if(getItemViewType(position) == DATA_VIEW_TYPE) {
       var redditViewHolder: RedditViewHolder = holder as RedditViewHolder;
-      val item = getItem(position)
+      val item = getItem(position - OFFSET)
       val resources = holder.itemView.context.resources
       val scoreString = resources.getString(R.string.score, item?.score)
       val commentCountString = resources.getString(R.string.comments, item?.commentCount)
@@ -82,13 +90,15 @@ class RedditAdapter : PagedListAdapter<RedditPost, RecyclerView.ViewHolder> {
   }
 
   override fun getItemViewType(position: Int): Int {
-    if(position<super.getItemCount())
+    if(position == 0) {
+      return STORY_VIEW_TYPE;
+    } else if( (position - OFFSET)<super.getItemCount())
       return DATA_VIEW_TYPE;
     else return FOOTER_VIEW_TYPE;
   }
 
   override fun getItemCount(): Int {
-    return super.getItemCount() + isLoading();
+    return OFFSET + super.getItemCount() + isLoading();
   }
 
   /** private methods */
